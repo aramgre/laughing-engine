@@ -1,0 +1,53 @@
+version: 2.1
+
+commands:
+  rvm:
+    steps:
+      # - run: |
+      #   sudo rvm implode
+      #   sudo rm --force /etc/rvmrc
+      #   rm ~/.rvmrc
+
+      - run: rvm install .
+      # - run: rvm alias create default $(< .ruby-version)
+
+      - run: |
+          echo "echo --- before rvm loaded ---" >> $BASH_ENV
+          echo "env | sort"                     >> $BASH_ENV
+          echo "echo -------------------------" >> $BASH_ENV
+
+          echo "source $rvm_path/scripts/rvm"   >> $BASH_ENV
+          echo "rvm use"                        >> $BASH_ENV
+
+          echo "echo --- after rvm loaded ---"  >> $BASH_ENV
+          echo "env | sort"                     >> $BASH_ENV
+          echo "echo -------------------------" >> $BASH_ENV
+
+      - run: ruby --version
+
+
+  bundler:
+    steps:
+      - restore_cache:
+          keys:
+          - bundler-cache-{{ checksum "Gemfile.lock" }}
+          - bundler-cache-
+      - run: |
+          gem install bundler
+          bundle install --jobs=4 --retry=3 --path vendor/bundle
+      - save_cache:
+          paths:
+            - vendor/bundle
+          key: bundler-cache-{{ checksum "Gemfile.lock" }}
+
+jobs:
+  build:
+    machine:
+      enabled: true
+    working_directory: ~/repo
+
+    steps:
+      - checkout
+      - rvm
+      - bundler
+      - run: bundle exec rake test
